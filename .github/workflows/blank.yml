@@ -1,0 +1,77 @@
+name: Build Executables for All Platforms
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+            artifact: ImmichUploader.exe
+            build-cmd: |
+              pip install -r requirements.txt
+              pip install pyinstaller
+              pyinstaller --onefile --windowed --name ImmichUploader immich_uploader.py
+          
+          - os: macos-latest
+            name: macOS
+            artifact: ImmichUploader
+            build-cmd: |
+              pip3 install -r requirements.txt
+              pip3 install pyinstaller
+              pyinstaller --onefile --windowed --name ImmichUploader immich_uploader.py
+          
+          - os: ubuntu-latest
+            name: Linux
+            artifact: ImmichUploader
+            build-cmd: |
+              pip install -r requirements.txt
+              pip install pyinstaller
+              pyinstaller --onefile --name ImmichUploader immich_uploader.py
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Build executable
+        run: ${{ matrix.build-cmd }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ImmichUploader-${{ matrix.name }}
+          path: dist/${{ matrix.artifact }}
+          retention-days: 90
+
+  create-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Display structure
+        run: ls -R
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ImmichUploader-Windows/*
+            ImmichUploader-macOS/*
+            ImmichUploader-Linux/*
