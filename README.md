@@ -180,10 +180,13 @@ The app communicates with these Immich API endpoints:
 - Or add to Windows Defender exceptions
 
 **"Connection failed"**
-- Check server URL ends with `/api`
+- Check server URL format - it MUST end with `/api`
+  - ✅ Correct: `http://192.168.1.100:2283/api`
+  - ❌ Wrong: `http://192.168.1.100:2283`
+  - ❌ Wrong: `http://192.168.1.100:2283/api/`
 - Verify API key is correct
 - Make sure Immich server is running
-- Test server URL in web browser first
+- Test server URL in web browser first (should see API docs)
 
 **"Permission denied" on Linux/Mac**
 - Make executable: `chmod +x ImmichUploader`

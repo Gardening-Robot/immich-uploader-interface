@@ -101,8 +101,8 @@ class ImmichUploader:
         self.server_url_entry.pack(fill=tk.X, pady=(0, 5))
         self.server_url_entry.insert(0, self.server_url or "http://192.168.1.100:2283/api")
         
-        tk.Label(form_frame, text="Include /api at the end", 
-                font=("Helvetica", 9), bg="#ffffff", fg="#9CA3AF").pack(anchor=tk.W, pady=(0, 15))
+        tk.Label(form_frame, text="⚠️ Must end with /api (no trailing slash)", 
+                font=("Helvetica", 9), bg="#ffffff", fg="#EF4444").pack(anchor=tk.W, pady=(0, 15))
         
         # API Key
         tk.Label(form_frame, text="API Key:", 
@@ -275,6 +275,8 @@ class ImmichUploader:
         try:
             # Test API connection
             headers = {'x-api-key': api_key}
+            # Remove trailing slash if present
+            server_url = server_url.rstrip('/')
             response = requests.get(f"{server_url}/user/me", headers=headers, timeout=10)
             
             if response.status_code == 200:
@@ -463,9 +465,10 @@ class ImmichUploader:
         """Get existing album or create new one"""
         try:
             headers = {'x-api-key': self.api_key}
+            server_url = self.server_url.rstrip('/')
             
             # Try to find existing album
-            response = requests.get(f"{self.server_url}/album", headers=headers, timeout=10)
+            response = requests.get(f"{server_url}/albums", headers=headers, timeout=10)
             if response.status_code == 200:
                 albums = response.json()
                 for album in albums:
@@ -474,7 +477,7 @@ class ImmichUploader:
             
             # Create new album
             data = {'albumName': album_name}
-            response = requests.post(f"{self.server_url}/album", 
+            response = requests.post(f"{server_url}/albums", 
                                    headers=headers, json=data, timeout=10)
             if response.status_code == 201:
                 return response.json().get('id')
@@ -488,50 +491,52 @@ class ImmichUploader:
         """Upload a single file"""
         try:
             headers = {'x-api-key': self.api_key}
-            
-            # Check if file exists already (if skip duplicates enabled)
-            if self.skip_duplicates_var.get():
-                file_hash = self.calculate_file_hash(file_path)
-                # For now, we'll skip the duplicate check API call to keep it simple
-                # In production, you'd want to check against Immich's asset list
+            server_url = self.server_url.rstrip('/')
             
             # Prepare file upload
             with open(file_path, 'rb') as f:
                 file_name = os.path.basename(file_path)
                 mime_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
                 
+                # Create multipart form data
                 files = {
                     'assetData': (file_name, f, mime_type)
                 }
                 
+                # Prepare form data (not JSON for multipart upload)
                 data = {
                     'deviceAssetId': f"{file_name}-{os.path.getmtime(file_path)}",
                     'deviceId': 'ImmichUploader',
-                    'fileCreatedAt': datetime.fromtimestamp(os.path.getctime(file_path)).isoformat(),
-                    'fileModifiedAt': datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat(),
-                    'isFavorite': 'false',
+                    'fileCreatedAt': datetime.fromtimestamp(os.path.getctime(file_path)).isoformat() + 'Z',
+                    'fileModifiedAt': datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat() + 'Z',
                 }
                 
-                # Upload asset
-                response = requests.post(f"{self.server_url}/asset/upload",
-                                       headers=headers, files=files, data=data, timeout=60)
+                # Upload asset - note: no 'upload' in path, just /assets
+                response = requests.post(f"{server_url}/assets",
+                                       headers=headers, files=files, data=data, timeout=120)
                 
                 if response.status_code in [200, 201]:
-                    asset_id = response.json().get('id')
+                    result = response.json()
+                    asset_id = result.get('id')
                     
-                    # Add to album
-                    album_data = {'ids': [asset_id]}
-                    requests.put(f"{self.server_url}/album/{album_id}/assets",
-                               headers=headers, json=album_data, timeout=10)
-                    
+                    if asset_id:
+                        # Add to album
+                        album_data = {'ids': [asset_id]}
+                        album_headers = {**headers, 'Content-Type': 'application/json'}
+                        album_response = requests.put(f"{server_url}/albums/{album_id}/assets",
+                                   headers=album_headers, json=album_data, timeout=10)
+                        
+                        return album_response.status_code in [200, 201]
                     return True
                 elif response.status_code == 409:
                     # Duplicate - that's okay if we're skipping
                     return True
                 else:
+                    self.log(f"Upload failed: {response.status_code} - {response.text}")
                     return False
         
         except Exception as e:
+            self.log(f"Error uploading file: {str(e)}")
             return False
     
     def calculate_file_hash(self, file_path):
