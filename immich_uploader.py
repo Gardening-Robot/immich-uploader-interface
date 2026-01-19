@@ -273,23 +273,73 @@ class ImmichUploader:
         self.root.update()
         
         try:
-            # Test API connection
-            headers = {'x-api-key': api_key}
             # Remove trailing slash if present
             server_url = server_url.rstrip('/')
-            response = requests.get(f"{server_url}/user/me", headers=headers, timeout=10)
+            
+            # Test API connection
+            headers = {'x-api-key': api_key}
+            
+            # First, test if server is reachable at all
+            test_url = f"{server_url}/server/about"
+            
+            print(f"DEBUG: Testing connection to: {test_url}")
+            print(f"DEBUG: Using headers: {headers}")
+            
+            response = requests.get(test_url, headers=headers, timeout=10)
+            
+            print(f"DEBUG: Response status: {response.status_code}")
+            print(f"DEBUG: Response text: {response.text[:200]}")
             
             if response.status_code == 200:
-                self.server_url = server_url
-                self.api_key = api_key
-                self.save_config()
-                messagebox.showinfo("Success", "Connected to Immich successfully!")
-                self.show_main()
+                # Now test user authentication - try both endpoints for compatibility
+                user_url = f"{server_url}/users/me"  # Try plural first (newer versions)
+                user_response = requests.get(user_url, headers=headers, timeout=10)
+                
+                if user_response.status_code == 404:
+                    # Try singular version (older versions)
+                    user_url = f"{server_url}/user/me"
+                    user_response = requests.get(user_url, headers=headers, timeout=10)
+                
+                if user_response.status_code == 200:
+                    self.server_url = server_url
+                    self.api_key = api_key
+                    self.save_config()
+                    messagebox.showinfo("Success", 
+                                      f"Connected successfully!\n\nServer URL: {server_url}\n\nYou can now upload photos.")
+                    self.show_main()
+                else:
+                    messagebox.showerror("Authentication Failed", 
+                                       f"Server reachable but authentication failed.\n\n"
+                                       f"Status: {user_response.status_code}\n"
+                                       f"Response: {user_response.text}\n\n"
+                                       f"Check your API key permissions.")
             else:
                 messagebox.showerror("Connection Failed", 
-                                   f"Failed to connect: {response.status_code}\n{response.text}")
+                                   f"Failed to connect to server.\n\n"
+                                   f"URL tried: {test_url}\n"
+                                   f"Status code: {response.status_code}\n"
+                                   f"Response: {response.text[:200]}\n\n"
+                                   f"Make sure:\n"
+                                   f"1. Server URL is correct\n"
+                                   f"2. URL ends with /api (no trailing slash)\n"
+                                   f"3. Immich server is running")
+        except requests.exceptions.ConnectionError as e:
+            messagebox.showerror("Connection Error", 
+                               f"Cannot reach server at:\n{server_url}\n\n"
+                               f"Error: {str(e)}\n\n"
+                               f"Make sure:\n"
+                               f"1. Immich server is running\n"
+                               f"2. IP address is correct\n"
+                               f"3. You're on the same network\n"
+                               f"4. Port 2283 is not blocked")
+        except requests.exceptions.Timeout:
+            messagebox.showerror("Timeout", 
+                               f"Server took too long to respond.\n\n"
+                               f"Server may be slow or unreachable.")
         except Exception as e:
-            messagebox.showerror("Connection Error", f"Failed to connect:\n{str(e)}")
+            messagebox.showerror("Connection Error", 
+                               f"Unexpected error:\n{str(e)}\n\n"
+                               f"URL: {server_url}")
         finally:
             self.connect_btn.config(text="Connect to Immich", state=tk.NORMAL)
     
