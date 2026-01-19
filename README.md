@@ -1,6 +1,4 @@
-# Immich Uploader - Python Standalone Version
-
-✨ **NO Node.js Required!** ✨
+# Immich Uploader
 
 This is a pure Python version that compiles to a **single executable** with **ZERO dependencies** for end users.
 
@@ -158,22 +156,6 @@ The app communicates with these Immich API endpoints:
 
 ## 🐛 Troubleshooting
 
-### Build Issues
-
-**"Python not found"**
-- Install Python from python.org
-- On Windows, reinstall and check "Add Python to PATH"
-
-**"pip not found"**
-- Reinstall Python (pip is included)
-- Or install manually: `python -m ensurepip`
-
-**Build fails with import errors**
-- Run: `pip install -r requirements.txt`
-- Make sure you're in the project directory
-
-### Runtime Issues
-
 **Windows Defender blocks the .exe**
 - This is normal for unsigned executables
 - Click "More info" → "Run anyway"
@@ -192,78 +174,6 @@ The app communicates with these Immich API endpoints:
 - Make executable: `chmod +x ImmichUploader`
 - Then run: `./ImmichUploader`
 
-## 🆚 Comparison with Node.js Version
-
-| Feature | Python Version | Node.js Version |
-|---------|---------------|-----------------|
-| End user needs | Nothing! | Node.js + Immich CLI |
-| File size | ~20 MB | ~150 MB |
-| Build time | 2-5 minutes | 5-15 minutes |
-| Upload method | Direct API | Via CLI tool |
-| GUI framework | Tkinter | Electron |
-| Portability | Single file | Multiple files |
-
-## 🎯 Recommended Use Cases
-
-**Python version is better for:**
-- ✅ Distribution to non-technical users
-- ✅ Minimal dependencies
-- ✅ Smaller file size
-- ✅ Quick builds
-
-**Node.js version is better for:**
-- ✅ Feature parity with official CLI
-- ✅ Modern web-based UI
-- ✅ Extensive customization
-- ✅ Active CLI development follows Immich updates
-
-## 📝 Building for Different Platforms
-
-### Cross-Platform Builds
-
-⚠️ **Important**: You generally need to build ON the target platform:
-- Build Windows .exe on Windows
-- Build Mac app on Mac
-- Build Linux executable on Linux
-
-PyInstaller doesn't support true cross-compilation.
-
-### GitHub Actions (Optional)
-
-You can automate builds using GitHub Actions:
-
-```yaml
-name: Build Executables
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  build:
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-    
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      
-      - run: pip install -r requirements.txt
-      - run: pip install pyinstaller
-      - run: pyinstaller --onefile --windowed --name ImmichUploader immich_uploader.py
-      
-      - uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.os }}-build
-          path: dist/*
-```
-
 ## 🔒 Security Notes
 
 - API key is stored in `~/.immich_uploader_config.json`
@@ -276,7 +186,7 @@ jobs:
 MIT License - Free to use, modify, and distribute
 
 ## 🙏 Credits
-
+- Built with Claude AI
 - Built for the Immich community
 - Uses the official Immich REST API
 - Inspired by the need for a truly standalone uploader
